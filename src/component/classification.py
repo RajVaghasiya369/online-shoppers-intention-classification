@@ -12,6 +12,9 @@ from sklearn.metrics import (accuracy_score, confusion_matrix, precision_score, 
 from sklearn.preprocessing import (StandardScaler, OneHotEncoder, OrdinalEncoder)
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from imblearn.over_sampling import SMOTE
+from collections import Counter
 
 
 class MyClassificationModel:
@@ -42,14 +45,14 @@ class MyClassificationModel:
             return (shape, stat)
         
         except Exception as e:
-            raise Exception("No data found for information about data.")        
+            raise Exception("No data found for information about data.") 
     
     def missing_duplicate_value(self,df):
         """HANDLE MISSING AND DUPLICATE VALUES"""
         
         try:
             before_duplicate = df.duplicated().sum()
-            df_remove_duplicate = df.drop_duplicates(keep=False)
+            df_remove_duplicate = df.drop_duplicates(keep='first')
             after_duplicate = df_remove_duplicate.duplicated().sum()
             before_missing_balue = df_remove_duplicate.isnull().sum()
             df_clean = df_remove_duplicate.dropna()
@@ -99,7 +102,7 @@ class MyClassificationModel:
             return np.sqrt(ss_between / ss_total) if ss_total != 0 else 0
         
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"{e}") from e
         
     def num_cat_cols(self, df):
         """ GETTING A BEST CORRELATION NUM AND CAT COLS """
@@ -120,24 +123,29 @@ class MyClassificationModel:
             return eta_df.head(10)
         
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"{e}") from e
         
-    def plot_corr(self, corr_matrix):
+    def plot_corr(self, corr_matrix, df):
         try:
             plt.figure(figsize=(10, 12))
             sns.heatmap(corr_matrix, annot=True, cmap="coolwarm", fmt=".2f")
             plt.title("Correlation Matrix")
+            
+            cols = ['PageValues', 'BounceRates', 'ExitRates', 'ProductRelated_Duration', 'Revenue']
+            sns.pairplot(df[cols], hue='Revenue', corner=True)
+            
             plt.show()
             
         except Exception as e:
             raise Exception("No correlation matrix found.")
     
-    def data_iqr(self,df):
-        """REMOVE OUTLIERS FROM DATA"""
+    def data_iqr(self, df):
         
+        """REMOVE OUTLIERS FROM DATA"""
         try:
+            df = df.copy()  # avoid SettingWithCopyWarning / silent no-op on a view
             num_cols = df.select_dtypes(include=['number']).columns.to_list()
-            
+
             for col in num_cols:
                 q1 = df[col].quantile(0.25)
                 q3 = df[col].quantile(0.75)
@@ -145,26 +153,26 @@ class MyClassificationModel:
                 lower = q1 - 1.5 * iqr
                 upper = q3 + 1.5 * iqr
                 median = df[col].median()
-                
-                outlier_count = ((df[col] < lower) | (df[col] > upper)).sum()
-                
+
+                mask = (df[col] < lower) | (df[col] > upper)
+                outlier_count = mask.sum()
+
                 if outlier_count > 0:
-                    df[col] = df[col].apply(
-                        lambda x: median if x < lower or x > upper else x
-                    )
-                    # print(f"'{col}': {outlier_count} outliers replaced with median ({median:.2f})")
-                
+                    df.loc[mask, col] = median
+                    print(f"'{col}': capped {outlier_count} outliers "
+                        f"(bounds: {lower:.2f} to {upper:.2f}, median: {median:.2f})")
+
             return df
-            
+
         except Exception as e:
-            raise Exception(f"IQR outlier removal failed: {e}")
+            raise Exception(f"IQR outlier removal failed: {e}") from e
         
     def bivariate_analysis_numeric_vs_numeric(self, df):
         """BIVARIATE ANALYSIS FOR NUMERIC VS NUMERIC"""
         
         """
         THIS THE MOST CORRELATED COLS
-        BounceRates     ExitRates
+        BounceRatess     ExitRates
         ProductRelated  ProductRelated_Duration
         Informational   Informational_Duration 
         Administrative  Administrative_Duration
@@ -173,10 +181,10 @@ class MyClassificationModel:
         
         try:
             plt.figure(figsize=(8,6))
-            sns.scatterplot(x=df['BounceRates'], y=df['ExitRates'], data=df)
-            plt.xlabel('BounceRates')
+            sns.scatterplot(x=df['BounceRatess'], y=df['ExitRates'], data=df)
+            plt.xlabel('BounceRatess')
             plt.ylabel('ExitRates')
-            plt.title("BounceRates VS ExitRates")
+            plt.title("BounceRatess VS ExitRates")
             
             plt.figure(figsize=(8,6))
             sns.scatterplot(x=df['ProductRelated'], y=df['ProductRelated_Duration'], data=df)
@@ -206,7 +214,7 @@ class MyClassificationModel:
             plt.show()
                 
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"{e}") from e
         
     def bivariate_analysis_numeric_vs_categories(self, df):
         """BIVARIATE ANALYSIS FOR NUMERIC VS CATEGORY"""
@@ -215,7 +223,7 @@ class MyClassificationModel:
         THIS THE MOST CORRELATED COLS
         Month   TrafficType
         VisitorType  ExitRates
-        VisitorType  BounceRates
+        VisitorType  BounceRatess
         """
 
         try:
@@ -233,10 +241,10 @@ class MyClassificationModel:
             plt.title("VisitorType VS ExitRates")
                     
             plt.figure(figsize=(8,6))
-            sns.barplot(x=df['VisitorType'], y=df['BounceRates'], data=df)
+            sns.barplot(x=df['VisitorType'], y=df['BounceRatess'], data=df)
             plt.xlabel('VisitorType')
-            plt.ylabel('BounceRates')
-            plt.title("VisitorType VS BounceRates")
+            plt.ylabel('BounceRatess')
+            plt.title("VisitorType VS BounceRatess")
                     
             plt.figure(figsize=(8,6))
             sns.boxplot(x=df['Month'], y=df['TrafficType'], data=df)
@@ -251,10 +259,10 @@ class MyClassificationModel:
             plt.title("VisitorType VS ExitRates")
             
             plt.figure(figsize=(8,6))
-            sns.boxplot(x=df['VisitorType'], y=df['BounceRates'], data=df)
+            sns.boxplot(x=df['VisitorType'], y=df['BounceRatess'], data=df)
             plt.xlabel('VisitorType')
-            plt.ylabel('BounceRates')
-            plt.title("VisitorType VS BounceRates")
+            plt.ylabel('BounceRatess')
+            plt.title("VisitorType VS BounceRatess")
             
             plt.figure(figsize=(8,6))
             sns.displot(df[df['Revenue'] == False]['Month'])
@@ -273,16 +281,41 @@ class MyClassificationModel:
             sns.displot(df[df['Revenue'] == True]['ExitRates'])
                         
             plt.figure(figsize=(8,6))
-            sns.displot(df[df['Revenue'] == False]['BounceRates'])
-            sns.displot(df[df['Revenue'] == True]['BounceRates'])
-                        
+            sns.displot(df[df['Revenue'] == False]['BounceRatess'])
+            sns.displot(df[df['Revenue'] == True]['BounceRatess'])
+                    
             
             plt.tight_layout()
             plt.show()
         
         except Exception as e:
-            raise Exception(f"{e}")    
-    
+            raise Exception(f"{e}") from e  
+        
+    def feature_enginnering(self,df):
+        """DOING FEATURE ENGINEERING FOR GETTING GOOD FEATURE"""
+        
+        try:
+            df['TotalPages'] = (df['Administrative'] + df['Informational'] + df['ProductRelated']) 
+            df['TotalDuration'] = (df['Administrative_Duration'] + df['Informational_Duration'] + df['ProductRelated_Duration'])
+            df['ValuePerProduct'] = (df['PageValues'] / (df['ProductRelated'] + 1))
+            df['PageValuePerDuration'] = (df['PageValues'] / (df['TotalPages'] + 1))
+            df['ProductFocusRatio'] = (df['ProductRelated'] / (df['TotalPages'] + 1))
+            df['ProductTimeRatio'] = (df['ProductRelated_Duration'] * df['ProductRelated'] + 1)
+            df['BounceExitOff'] = (df['BounceRates'] + df['ExitRates'])
+            
+            skewed_cols = []
+            for col in df.select_dtypes(include='number').columns:
+                if col == "Revenue":
+                    continue
+                if df[col].skew() > 1:
+                    df[col + '_log'] = np.log1p(df[col])
+                    skewed_cols.append(col)
+
+            return df
+            
+        except Exception as e:
+            raise Exception(f"{e}") from e    
+            
     def data_encoded(self,df):
         """CONVERT STRING OR OBJECT DATA TO NUMERIC BY ENCODING"""
         
@@ -306,159 +339,368 @@ class MyClassificationModel:
             return df
         
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"{e}") from e
     
     def train_test_split(self, df):
-        """TRAIN TEST SPLIT THE DATA"""
-        
+        """SPLIT FIRST, THEN LEARN ALL STATISTICS FROM TRAIN ONLY"""
         try:
-            X = df.drop(columns=['Informational', 'SpecialDay', 'VisitorType_Other', 'Weekend', 'Month', 'Revenue'])
-            y = df[['Revenue']]
+            # Deterministic, row-wise, NOT statistic-based — safe to do pre-split
+            df['Weekend'] = np.where(df['Weekend'] == True, 1, 0)
+            df['Revenue'] = np.where(df['Revenue'] == True, 1, 0)
+
+            X = df.drop(columns=['Informational', 'SpecialDay',
+                                'Weekend', 'Revenue'])
+            y = df['Revenue']
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42, stratify=y
+            )
+
+            num_cols = X.select_dtypes(include='number').columns.tolist()
+
+            preprocessor = self.build_preprocessor(
+                num_cols=num_cols, month_col='Month', visitor_col='VisitorType'
+            )
             
-            si = SimpleImputer(strategy='median')
-            X_impute = si.fit_transform(X)
-            
-            X_train, X_test, y_train, y_test = train_test_split(X_impute, y, test_size=0.2, random_state=42)
-            
-            return X_train, X_test, y_train, y_test, X, y
-    
+            # Fit ONLY on train — this is the fix
+            X_train_processed = preprocessor.fit_transform(X_train)
+            # Transform only — test never influences learned statistics
+            X_test_processed = preprocessor.transform(X_test)
+
+            return (X_train_processed, X_test_processed, y_train, y_test,
+                    X, y, preprocessor)
+
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"{e}") from e
         
-    def model_eval(self, X, y, name, X_train, X_test, y_train, y_test, model):
-        """EVALUTING ALL MODEL FOR CLASSIFICATION"""
+    def build_preprocessor(self, num_cols, month_col='Month', visitor_col='VisitorType'):
+        """
+        Builds a single leakage-safe preprocessor.
+        Fit this ONLY on X_train. Call .transform() (not .fit_transform()) on X_test.
+        """
+        month_order = [['Feb', 'Mar', 'May', 'June', 'Jul', 'Aug', 'Sep',
+                            'Oct', 'Nov', 'Dec']]
+
+        numeric_pipeline = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='median')),
+        ('scaler', StandardScaler()),
+        ])
         
+        month_pipeline = Pipeline(steps=[
+                ('ordinal', OrdinalEncoder(
+                    categories=month_order,
+                    handle_unknown='use_encoded_value',
+                    unknown_value=-1
+            )),
+            ])
+
+        visitor_pipeline = Pipeline(steps=[
+                ('onehot', OneHotEncoder(drop='first', sparse_output=False, handle_unknown='ignore')),
+            ])
+
+        preprocessor = ColumnTransformer(transformers=[
+                ('num', numeric_pipeline, num_cols),
+                ('month', month_pipeline, [month_col]),
+                ('visitor', visitor_pipeline, [visitor_col]),
+            ], remainder='passthrough')
+
+        return preprocessor    
+                
+    def check_imbalanced(self, X_train, y_train, threshold=0.4, sampling_strategy='auto'):
+        """
+        CHECK IF DATA IS IMBALANCED, APPLY SMOTE IF NEEDED
+        
+        threshold: minority/majority ratio below which data is considered imbalanced
+                (0.4 means minority class is <40% of majority class)
+        """
         try:
-            if isinstance(name, str):
-                pipeline = Pipeline(steps=[
-                    ('imputer', SimpleImputer(strategy='median')),
-                    ('scaler', StandardScaler()),
-                    (name,model),
-                ])
-                
-                pipeline.fit(X_train, y_train)
-                y_pred = pipeline.predict(X_test)
-                
-                train_score = pipeline.score(X_train, y_train)
-                test_score = pipeline.score(X_test, y_test)
-                
-                a = accuracy_score(y_test, y_pred)
-                b = confusion_matrix(y_test, y_pred)
-                c = precision_score(y_test, y_pred)
-                d = recall_score(y_test, y_pred)
-                e = f1_score(y_test, y_pred)
-                f = precision_recall_curve(y_test, y_pred)
-                
-                cv = cross_val_score(pipeline, X, y, cv=5, scoring='accuracy')
-                
-                # importances = pd.Series(model.feature_importances_, index=X.columns)
-                # , importances.sort_values(ascending=False).head(15)
-                
-                return train_score, test_score, a, b, c, d, e, f, cv.mean(), cv.std()
-                
+            class_counts = Counter(y_train)
+            minority_class = min(class_counts, key=class_counts.get)
+            majority_class = max(class_counts, key=class_counts.get)
+            
+            ratio = class_counts[minority_class] / class_counts[majority_class]
+            
+            print(f"Before SMOTE: {dict(class_counts)} | Imbalance ratio: {ratio:.3f}")
+            
+            if ratio < threshold:
+                smote = SMOTE(random_state=42, sampling_strategy=sampling_strategy)
+                X_train, y_train = smote.fit_resample(X_train, y_train)
+                print(f"After SMOTE:  {dict(Counter(y_train))}")
             else:
-                return "Name must be string."
-    
+                print("Data is reasonably balanced. Skipping SMOTE.")
+            
+            return X_train, y_train
+        
         except Exception as e:
-            raise Exception(f"{e}")
+            raise Exception(f"{e}") from e
+        
+    def models(self, y_train):
+        """ALL MODEL FOR CLASSIFICATION"""
+        
+        lr = LogisticRegression(C=0.3,max_iter=200,random_state=42,solver='liblinear')
+        rfc = RandomForestClassifier(n_estimators=500, criterion='gini', max_depth=20, min_samples_split=2, min_samples_leaf=1, class_weight='balanced', random_state=42, n_jobs=-1)
+        dtc = DecisionTreeClassifier(criterion='entropy', splitter='random',max_depth=20, random_state=42, class_weight='balanced', min_samples_leaf=1, min_samples_split=2)
+        gbc = GradientBoostingClassifier(
+                learning_rate=0.03,       
+                n_estimators=150,         
+                max_depth=5,              
+                min_samples_split=5,
+                min_samples_leaf=5,
+                subsample=0.8,            
+                random_state=42
+            )
+        abc = AdaBoostClassifier(
+                estimator=dtc,
+                n_estimators=200,
+                learning_rate=0.5,
+                random_state=42
+            )
+        bc = BaggingClassifier(
+                estimator=dtc,
+                n_estimators=75,
+                max_features=1,       
+                max_samples=0.8,        
+                bootstrap=True,
+                oob_score=True,         
+                random_state=42,
+            )
+        xgbc = XGBClassifier(
+                n_estimators=150,
+                learning_rate=0.05,
+                scale_pos_weight=(y_train == 0).sum() / (y_train == 1).sum(),
+                max_depth=7,
+                min_child_weight=1,
+                gamma=0.2,
+                subsample=0.8,
+                colsample_bytree=1.0,
+                reg_alpha=0.1,
+                reg_lambda=0.5,
+                random_state=42,
+                n_jobs=-1
+            )
+            
+        models = {
+                "LogisticRegression" : lr,
+                "RandomForest" : rfc,
+                "DecisionTree" : dtc,
+                "GradientBoosting" : gbc,
+                "AdaBoost" : abc,
+                "BaggingClassifier" : bc,
+                "XGB" : xgbc,
+            }
+            
+        return models
+        
+    def get_param_distributions(self):
+        """PARAMETER DISTRIBUTIONS FOR RANDOMIZEDSEARCHCV, KEYED BY MODEL NAME"""
+
+        param_distributions = {
+            "LogisticRegression": {
+                "C": [0.001, 0.01, 0.03, 0.1, 0.3, 1, 3, 10],
+                "solver": ["liblinear", "saga"],
+                "max_iter": [100, 200, 500],
+            },
+            "RandomForest": {
+                "n_estimators": [100, 200, 300, 400, 500],
+                "max_depth": [5, 10, 15, 20, None],
+                "min_samples_split": [2, 5, 10],
+                "min_samples_leaf": [1, 5, 10, 20],
+                "criterion": ["gini", "entropy"],
+            },
+            "DecisionTree": {
+                "max_depth": [5, 10, 15, 20, None],
+                "min_samples_split": [2, 5, 10],
+                "min_samples_leaf": [1, 5, 10],
+                "criterion": ["gini", "entropy"],
+                "splitter": ["best", "random"],
+            },
+            "GradientBoosting": {
+                "n_estimators": [100, 150, 200, 300],
+                "learning_rate": [0.01, 0.03, 0.05, 0.1],
+                "max_depth": [2, 3, 4, 5],
+                "min_samples_split": [2, 5, 10],
+                "min_samples_leaf": [1, 2, 5],
+                "subsample": [0.6, 0.8, 1.0],
+            },
+            "AdaBoost": {
+                "n_estimators": [50, 100, 150, 200],
+                "learning_rate": [0.01, 0.05, 0.1, 0.5, 1.0],
+            },
+            "BaggingClassifier": {
+                "n_estimators": [10, 25, 50, 75, 100],
+                "max_features": [0.5, 0.6, 0.8, 1.0],
+                "max_samples": [0.5, 0.6, 0.8, 1.0],
+            },
+            "XGB": {
+                "n_estimators": [100, 150, 200, 300],
+                "learning_rate": [0.01, 0.03, 0.05, 0.1],
+                "max_depth": [3, 4, 5, 6, 7],
+                "min_child_weight": [1, 3, 5],
+                "gamma": [0, 0.1, 0.2],
+                "subsample": [0.6, 0.8, 1.0],
+                "colsample_bytree": [0.6, 0.8, 1.0],
+                "reg_alpha": [0, 0.01, 0.1],
+                "reg_lambda": [0.5, 1.0, 1.5],
+            },
+        }
+
+        return param_distributions
+
+    def tune_model_with_randomsearch(self, X_train, y_train, name, model, param_distributions, n_iter=20, cv=5, scoring='f1', random_state=42, n_jobs=-1):
+        """RUN RANDOMIZEDSEARCHCV FOR A SINGLE MODEL AND RETURN THE BEST ESTIMATOR"""
+
+        try:
+            search = RandomizedSearchCV(
+                estimator=model,
+                param_distributions=param_distributions,
+                n_iter=n_iter,
+                scoring=scoring,
+                cv=cv,
+                random_state=random_state,
+                n_jobs=n_jobs,
+                verbose=0,
+            )
+
+            search.fit(X_train, y_train)
+
+            print(f"[{name}] Best score ({scoring}): {search.best_score_:.4f}")
+            print(f"[{name}] Best params: {search.best_params_}")
+
+            return {
+                "name": name,
+                "best_estimator": search.best_estimator_,
+                "best_params": search.best_params_,
+                "best_score": search.best_score_,
+            }
+
+        except Exception as e:
+            raise Exception(f"RandomizedSearchCV failed for {name}: {e}") from e
+
+    def tune_all_models_with_randomsearch(self, X_train, y_train, models: dict, n_iter=20, cv=5, scoring='f1'):
+        """LOOP OVER ALL MODELS, TUNE EACH WITH RANDOMIZEDSEARCHCV, RETURN BEST ESTIMATORS"""
+
+        param_distributions = self.get_param_distributions()
+        tuned_results = {}
+
+        for name, model in models.items():
+            params = param_distributions.get(name)
+
+            if not params:
+                print(f"[{name}] No param distribution defined, skipping tuning.")
+                tuned_results[name] = {
+                    "name": name,
+                    "best_estimator": model,
+                    "best_params": None,
+                    "best_score": None,
+                }
+                continue
+
+            result = self.tune_model_with_randomsearch(
+                X_train=X_train,
+                y_train=y_train,
+                name=name,
+                model=model,
+                param_distributions=params,
+                n_iter=n_iter,
+                cv=cv,
+                scoring=scoring,
+            )
+            tuned_results[name] = result
+
+        return tuned_results
+
+    def evaluate_model(self, X_train, X_test, y_train, y_test, name, model):
+        """Evaluate a single model. X_train/X_test are ALREADY preprocessed."""
+        try:
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+
+            cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
+            
+            result = {
+                name: {
+                    'train_score': model.score(X_train, y_train),
+                    'test_score': model.score(X_test, y_test),
+                    'accuracy': accuracy_score(y_test, y_pred),
+                    'precision': precision_score(y_test, y_pred),
+                    'recall': recall_score(y_test, y_pred),
+                    'f1_score': f1_score(y_test, y_pred),
+                    'confusion_matrix': confusion_matrix(y_test, y_pred),
+                    'precision_recall_curve': precision_recall_curve(y_test, y_pred),
+                    'cv_mean': cv_scores.mean(),
+                    'cv_std': cv_scores.std(),
+                }
+            }
+            return result
+
+        except Exception as e:
+            raise Exception(f"{e}") from e
+        
+    def run_all_models(self, X, y, X_train, X_test, y_train, y_test, models: dict):
+        """RUN ALL MODEL"""
+        
+        for name, model in models.items():
+            result = self.evaluate_model(X, y, name, X_train, X_test, y_train, y_test, model)
+            self.list_of_model.append(result)
+            
+        return self.list_of_model
     
+    def info_of_model(self, models: list):
+        
+        result = []
+        
+        for idx, model in enumerate(models):
+            items = ", ".join([f"{k}: {v}" for k, v in model.items()])
+            result.append(f"{idx} => {items}")
+        
+        return "\n".join(result)
+
     
 def main():
     file_path = "../../data/online_shoppers_intention.csv"
     mcm = MyClassificationModel(file_path=file_path)
+
     df = mcm.load_data()
-    info, stat = mcm.data_info(df=df)
-    b_duplicate, a_duplicate, b_mis_val, af_mis_val, df_clean1 = mcm.missing_duplicate_value(df=df)
-    corr_matrix, df_f= mcm.data_corr(df=df_clean1)
-    
-    df_clean = mcm.data_iqr(df=df_clean1)
-    # print(type(df_clean))
-    # print(df_clean['Revenue'].value_counts())
-    
-    # df_clean_fe = mcm.feature_eng(df=df_clean)
-    
-    df_clean_encoded = mcm.data_encoded(df=df_clean)
-    # print(df_clean_encoded[['Month','Month_Encoded']])
-    # print(df_clean_encoded[['Weekend','Revenue']])
-    # print(df_clean_encoded.dtypes)
-    
-    X_train, X_test, y_train, y_test, X, y = mcm.train_test_split(df=df_clean_encoded)
-    
-    lr = LogisticRegression(C=0.03,max_iter=100,class_weight='balanced',random_state=42,solver='liblinear')
-    rfc = RandomForestClassifier(n_estimators=300, criterion='entropy', max_depth=10, min_samples_split=5, min_samples_leaf=10, class_weight='balanced', random_state=42, n_jobs=-1)
-    dtc = DecisionTreeClassifier(criterion='entropy', splitter='random',max_depth=20, random_state=42, class_weight='balanced')
-    gbc = GradientBoostingClassifier(
-        loss='log_loss',
-        learning_rate=0.05,       # smaller learning rate
-        n_estimators=200,         # more trees
-        max_depth=4,              # deeper base learners
-        min_samples_split=5,
-        min_samples_leaf=2,
-        subsample=0.8,            # stochastic boosting
-        random_state=42
+    _, _, _, _, df_clean1 = mcm.missing_duplicate_value(df=df)
+    df_with_feature = mcm.feature_enginnering(df=df_clean1)
+
+    # Split + preprocess (fit only on train, transform test) — no leakage
+    X_train, X_test, y_train, y_test, X, y, preprocessor = mcm.train_test_split(df=df_with_feature)
+
+    # SMOTE goes inside the model pipeline now (see next message), not here
+    X_train_resampled, y_train_resampled = mcm.check_imbalanced(X_train=X_train, y_train=y_train)
+
+    models = mcm.models(y_train=y_train)
+
+    # --- RandomizedSearchCV hyperparameter tuning ---
+    # XGB tuned on the original imbalanced data (it uses scale_pos_weight),
+    # everything else tuned on the SMOTE-resampled data.
+    xgb_only = {"XGB": models["XGB"]}
+    other_models = {name: model for name, model in models.items() if name != "XGB"}
+
+    tuned_xgb = mcm.tune_all_models_with_randomsearch(
+        X_train=X_train, y_train=y_train, models=xgb_only, n_iter=20, cv=5, scoring='f1'
     )
-    abc = AdaBoostClassifier(
-        estimator=dtc,
-        n_estimators=100,
-        learning_rate=0.5,
-        random_state=42
+    tuned_others = mcm.tune_all_models_with_randomsearch(
+        X_train=X_train_resampled, y_train=y_train_resampled, models=other_models, n_iter=20, cv=5, scoring='f1'
     )
-    bc = BaggingClassifier(
-        estimator=dtc,
-        n_estimators=50,
-        max_samples=0.8,        # 80% of samples per estimator
-        max_features=0.8,       # 80% of features per estimator
-        bootstrap=True,
-        oob_score=True,         # enable out-of-bag evaluation
-        random_state=42,
-        n_jobs=-1
-    )
-    xgc = XGBClassifier(
-        n_estimators=200,
-        learning_rate=0.05,
-        scale_pos_weight=10221/1908,
-        eval_matric='logloss',
-        max_depth=5,
-        min_child_weight=3,
-        gamma=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        reg_alpha=0.01,
-        reg_lambda=1.0,
-        objective='binary:logistic',
-        random_state=42,
-        n_jobs=-1
-    )
-    
-    train_score, test_score, acc, con, pre, rec, f1, pre_rec, mean, std= mcm.model_eval(X=X, y=y, name='LR',X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, model=xgc)
-    
-    print(f"train score {train_score}")
-    print(f"test score {test_score}")
-    print(f"accuracy {acc}")
-    print(f"confusion {con}")
-    print(f"predision {pre}")
-    print(f"recall {rec}")
-    print(f"f1 score {f1}")
-    print(f"predicion recall {pre_rec}")
-    print(f"mean {mean}")
-    print(f"std {std}")
-    # print(f"fe\n {m}")
-    # mcm.bivariate_analysis_numeric_vs_numeric(df_clean)
-    # print(mcm.num_cat_cols(df=df_clean))
-    # mcm.bivariate_analysis_numeric_vs_categories(df=df_clean)
+
+    tuned_models = {**tuned_xgb, **tuned_others}
+    best_models = {name: info["best_estimator"] for name, info in tuned_models.items()}
+    # --- end tuning ---
+
+    list_of_model = []
+    for name, model in best_models.items():
+        if name == "XGB":
+            # XGB uses scale_pos_weight — feed it the ORIGINAL imbalanced data
+            result = mcm.evaluate_model(X_train, X_test, y_train, y_test, name, model)
+        else:
+            # Others use SMOTE-resampled data
+            result = mcm.evaluate_model(X_train_resampled, X_test, y_train_resampled, y_test, name, model)
+        list_of_model.append(result)
+
+    print(mcm.info_of_model(list_of_model))
 
 
-    # print(df_clean.shape,end='\n')
-    # mcm.plot_corr(corr_matrix=corr_matrix)
-    # print(f"correletaion {corr_matrix}")
-    # print(f"final pairs\n {df_f}")
-    # print(f"before duplicate {b_duplicate}",end='\n')
-    # print(f"after duplicate {a_duplicate}",end='\n')
-    # print(f"before missing value {b_mis_val}",end='\n')
-    # print(f"after missing value {af_mis_val}",end='\n')
-    # print(f"size of data {df_clean.shape}",end='\n')
-    
-    
-    
 if __name__ == "__main__":
     main()
