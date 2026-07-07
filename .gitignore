@@ -1,21 +1,50 @@
-# Virtual environment
+# Virtual environments
 venv/
-env/
 .venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
-# Python cache
+# Byte-compiled / optimized files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
 
-# Jupyter checkpoints
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
 # Environment variables / secrets
 .env
+.env.*
+
+# IDE / editor settings
+.vscode/
+.idea/
+*.swp
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
+# Data files (large / sensitive — don't push datasets to GitHub)
+*.csv
+*.tsv
+*.xlsx
+*.parquet
+data/
+
+# Model artifacts
+*.pkl
+*.joblib
+*.h5
+
+# Logs
+*.log
