@@ -1,0 +1,10 @@
+{
+    "model_name": "LogisticRegression",
+    "best_params": {
+        "solver": "liblinear",
+        "max_iter": 200,
+        "C": 0.3
+    },
+    "best_score": 0.8460427870943935,
+    "timestamp": "2026-07-08 17:33:51"
+}

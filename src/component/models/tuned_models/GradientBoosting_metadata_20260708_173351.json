@@ -1,0 +1,13 @@
+{
+    "model_name": "GradientBoosting",
+    "best_params": {
+        "subsample": 0.8,
+        "n_estimators": 150,
+        "min_samples_split": 5,
+        "min_samples_leaf": 5,
+        "max_depth": 5,
+        "learning_rate": 0.03
+    },
+    "best_score": 0.9160104392940205,
+    "timestamp": "2026-07-08 17:33:51"
+}

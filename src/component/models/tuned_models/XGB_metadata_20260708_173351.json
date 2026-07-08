@@ -1,0 +1,16 @@
+{
+    "model_name": "XGB",
+    "best_params": {
+        "subsample": 0.8,
+        "reg_lambda": 0.5,
+        "reg_alpha": 0.1,
+        "n_estimators": 150,
+        "min_child_weight": 1,
+        "max_depth": 7,
+        "learning_rate": 0.05,
+        "gamma": 0.2,
+        "colsample_bytree": 1.0
+    },
+    "best_score": 0.6763460021316501,
+    "timestamp": "2026-07-08 17:33:51"
+}

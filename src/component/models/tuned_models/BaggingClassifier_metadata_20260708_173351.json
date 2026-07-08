@@ -1,0 +1,10 @@
+{
+    "model_name": "BaggingClassifier",
+    "best_params": {
+        "n_estimators": 75,
+        "max_samples": 0.8,
+        "max_features": 1.0
+    },
+    "best_score": 0.9329540707932364,
+    "timestamp": "2026-07-08 17:33:51"
+}
