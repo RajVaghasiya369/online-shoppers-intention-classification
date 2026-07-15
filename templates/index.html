@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shop Intent — Purchase Prediction</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a222c;
+      --surface-2: #243040;
+      --border: #2e3d4f;
+      --text: #e8eef4;
+      --muted: #8b9bb0;
+      --accent: #3d9a7a;
+      --accent-hover: #4db890;
+      --danger: #e07171;
+      --danger-bg: rgba(224, 113, 113, 0.12);
+      --success: #3d9a7a;
+      --success-bg: rgba(61, 154, 122, 0.14);
+      --warn-bg: rgba(212, 168, 75, 0.14);
+      --warn: #d4a84b;
+      --radius: 10px;
+      --font: "DM Sans", system-ui, sans-serif;
+      --display: "Instrument Serif", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, rgba(61, 154, 122, 0.18), transparent),
+        radial-gradient(ellipse 60% 40% at 90% 0%, rgba(70, 110, 160, 0.12), transparent),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+
+    header {
+      margin-bottom: 2rem;
+    }
+
+    header .brand {
+      font-family: var(--display);
+      font-size: clamp(2.25rem, 5vw, 3rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    header .brand em {
+      font-style: italic;
+      color: var(--accent);
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 0.5rem;
+      max-width: 36rem;
+      font-size: 1rem;
+    }
+
+    .meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding: 0.35rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .meta strong { color: var(--accent); font-weight: 600; }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .panel h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem 1.25rem;
+    }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    input, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.65rem 0.75rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    select { cursor: pointer; }
+
+    .actions {
+      margin-top: 1.5rem;
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.7rem 1.4rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #06150f;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+    .result, .error {
+      margin-bottom: 1.5rem;
+      padding: 1.25rem 1.5rem;
+      border-radius: var(--radius);
+      border: 1px solid;
+      animation: fadeUp 0.35s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result.purchase {
+      background: var(--success-bg);
+      border-color: var(--accent);
+    }
+
+    .result.no-purchase {
+      background: var(--warn-bg);
+      border-color: var(--warn);
+    }
+
+    .error {
+      background: var(--danger-bg);
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .result .label {
+      font-family: var(--display);
+      font-size: 1.75rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .result .detail {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .result .detail span {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    footer {
+      margin-top: 2rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    footer code {
+      background: var(--surface-2);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1 class="brand">Shop <em>Intent</em></h1>
+      <p>Predict whether an online shopping session will generate revenue from visitor behavior metrics.</p>
+      <div class="meta">Default: <strong>{{ default_model }}</strong> · {{ available_models|length }} models loaded</div>
+    </header>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+    <div class="result {{ 'purchase' if result.revenue else 'no-purchase' }}">
+      <div class="label">{{ result.label }}</div>
+      <div class="detail">
+        Prediction: <span>{{ result.prediction }}</span>
+        {% if result.probability is not none %}
+        &nbsp;·&nbsp; Purchase probability: <span>{{ '%.1f'|format(result.probability * 100) }}%</span>
+        {% endif %}
+        &nbsp;·&nbsp; Model: <span>{{ result.model }}{% if result.is_best %} (best){% endif %}</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <h2>Session features</h2>
+      <form method="POST" action="/predict" id="predict-form">
+        <div class="grid">
+          <div class="field full">
+            <label for="model">Model</label>
+            <select name="model" id="model" required>
+              {% for name in available_models %}
+              <option value="{{ name }}"
+                {% if form_data.get('model', default_model) == name %}selected{% endif %}>
+                {{ name }}{% if name == default_model %} (best){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="Administrative">Administrative pages</label>
+            <input type="number" step="any" name="Administrative" id="Administrative"
+              value="{{ form_data.get('Administrative', 0) }}" required />
+          </div>
+          <div class="field">
+            <label for="Administrative_Duration">Administrative duration</label>
+            <input type="number" step="any" name="Administrative_Duration" id="Administrative_Duration"
+              value="{{ form_data.get('Administrative_Duration', 0) }}" required />
+          </div>
+          <div class="field">
+            <label for="Informational">Informational pages</label>
+            <input type="number" step="any" name="Informational" id="Informational"
+              value="{{ form_data.get('Informational', 0) }}" required />
+          </div>
+          <div class="field">
+            <label for="Informational_Duration">Informational duration</label>
+            <input type="number" step="any" name="Informational_Duration" id="Informational_Duration"
+              value="{{ form_data.get('Informational_Duration', 0) }}" required />
+          </div>
+          <div class="field">
+            <label for="ProductRelated">Product-related pages</label>
+            <input type="number" step="any" name="ProductRelated" id="ProductRelated"
+              value="{{ form_data.get('ProductRelated', 1) }}" required />
+          </div>
+          <div class="field">
+            <label for="ProductRelated_Duration">Product-related duration</label>
+            <input type="number" step="any" name="ProductRelated_Duration" id="ProductRelated_Duration"
+              value="{{ form_data.get('ProductRelated_Duration', 0) }}" required />
+          </div>
+          <div class="field">
+            <label for="BounceRates">Bounce rate</label>
+            <input type="number" step="any" name="BounceRates" id="BounceRates"
+              value="{{ form_data.get('BounceRates', 0) }}" min="0" max="1" required />
+          </div>
+          <div class="field">
+            <label for="ExitRates">Exit rate</label>
+            <input type="number" step="any" name="ExitRates" id="ExitRates"
+              value="{{ form_data.get('ExitRates', 0) }}" min="0" max="1" required />
+          </div>
+          <div class="field">
+            <label for="PageValues">Page values</label>
+            <input type="number" step="any" name="PageValues" id="PageValues"
+              value="{{ form_data.get('PageValues', 0) }}" required />
+          </div>
+          <div class="field">
+            <label for="SpecialDay">Special day proximity</label>
+            <input type="number" step="any" name="SpecialDay" id="SpecialDay"
+              value="{{ form_data.get('SpecialDay', 0) }}" min="0" max="1" required />
+          </div>
+          <div class="field">
+            <label for="Month">Month</label>
+            <select name="Month" id="Month" required>
+              {% for m in months %}
+              <option value="{{ m }}" {% if form_data.get('Month', 'Nov') == m %}selected{% endif %}>{{ m }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="OperatingSystems">Operating system (ID)</label>
+            <input type="number" step="1" name="OperatingSystems" id="OperatingSystems"
+              value="{{ form_data.get('OperatingSystems', 2) }}" required />
+          </div>
+          <div class="field">
+            <label for="Browser">Browser (ID)</label>
+            <input type="number" step="1" name="Browser" id="Browser"
+              value="{{ form_data.get('Browser', 2) }}" required />
+          </div>
+          <div class="field">
+            <label for="Region">Region (ID)</label>
+            <input type="number" step="1" name="Region" id="Region"
+              value="{{ form_data.get('Region', 1) }}" required />
+          </div>
+          <div class="field">
+            <label for="TrafficType">Traffic type (ID)</label>
+            <input type="number" step="1" name="TrafficType" id="TrafficType"
+              value="{{ form_data.get('TrafficType', 2) }}" required />
+          </div>
+          <div class="field">
+            <label for="VisitorType">Visitor type</label>
+            <select name="VisitorType" id="VisitorType" required>
+              {% for v in visitor_types %}
+              <option value="{{ v }}" {% if form_data.get('VisitorType', 'Returning_Visitor') == v %}selected{% endif %}>{{ v }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="Weekend">Weekend visit</label>
+            <select name="Weekend" id="Weekend" required>
+              <option value="false" {% if form_data.get('Weekend', 'false')|string|lower in ['false', '0', 'no'] %}selected{% endif %}>No</option>
+              <option value="true" {% if form_data.get('Weekend', '')|string|lower in ['true', '1', 'yes'] %}selected{% endif %}>Yes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn-primary">Predict purchase</button>
+          <button type="button" class="btn-ghost" id="sample-btn">Load sample (likely purchase)</button>
+        </div>
+      </form>
+    </div>
+
+    <footer>
+      <p>API: <code>POST /predict</code> (optional <code>model</code> field) · Models: <code>GET /models</code> · Health: <code>GET /health</code></p>
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById("sample-btn").addEventListener("click", function () {
+      const sample = {
+        Administrative: 5,
+        Administrative_Duration: 100,
+        Informational: 1,
+        Informational_Duration: 50,
+        ProductRelated: 40,
+        ProductRelated_Duration: 1800,
+        BounceRates: 0.01,
+        ExitRates: 0.02,
+        PageValues: 45,
+        SpecialDay: 0,
+        Month: "Nov",
+        OperatingSystems: 2,
+        Browser: 2,
+        Region: 1,
+        TrafficType: 2,
+        VisitorType: "Returning_Visitor",
+        Weekend: "false",
+      };
+      Object.keys(sample).forEach(function (key) {
+        const el = document.getElementById(key);
+        if (el) el.value = sample[key];
+      });
+    });
+  </script>
+</body>
+</html>
